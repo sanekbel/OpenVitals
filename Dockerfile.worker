@@ -30,6 +30,6 @@ USER worker
 WORKDIR /app/services/ingestion-worker
 EXPOSE 4000
 
-# ВАЖНО: проверь services/ingestion-worker/package.json — если скрипта "start"
-# там нет, замени на реальную команду запуска (например: CMD ["node", "dist/index.js"])
-CMD ["pnpm", "start"]
+# Запускаем собранный бандл напрямую — без pnpm/corepack, которым в рантайме
+# под непривилегированным юзером некуда писать кэш (/home/worker/.cache → EACCES).
+CMD ["node", "dist/server.js"]
