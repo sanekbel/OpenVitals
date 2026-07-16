@@ -16,6 +16,8 @@ services:
       AI_DEFAULT_MODEL: ${AI_DEFAULT_MODEL:-claude-sonnet-4-20250514}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       BLOB_STORAGE_PROVIDER: local
+      # Общий том с worker — оба читают/пишут блобы в одну папку
+      LOCAL_BLOB_DIR: /app/apps/web/uploads
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       RENDER_WORKER_URL: http://worker:4000
       RENDER_WEBHOOK_SECRET: ${RENDER_WEBHOOK_SECRET}
@@ -44,6 +46,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       RENDER_WEBHOOK_SECRET: ${RENDER_WEBHOOK_SECRET}
       NODE_ENV: production
+      # То же локальное хранилище, что и у web (общий том uploads)
+      BLOB_STORAGE_PROVIDER: local
+      LOCAL_BLOB_DIR: /app/apps/web/uploads
     volumes:
       - uploads:/app/apps/web/uploads
     expose:
