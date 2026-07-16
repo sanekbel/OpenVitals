@@ -5,18 +5,14 @@ FROM node:20-slim AS base
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-FROM base AS deps
-WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
-COPY services/ingestion-worker/package.json services/ingestion-worker/package.json
-COPY packages packages
-RUN pnpm install --frozen-lockfile
-
+# ---- builder: полный install монорепо + сборка воркера ----
+# tsup бандлит всё (noExternal), поэтому esbuild нужны node_modules ВСЕХ
+# workspace-пакетов (drizzle-orm, pg и т.д. внутри packages/*), а не только
+# корневой и воркерский. Поэтому ставим зависимости прямо здесь на полном исходнике.
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/services/ingestion-worker/node_modules ./services/ingestion-worker/node_modules
 COPY . .
+RUN pnpm install --frozen-lockfile
 ENV NODE_ENV=production
 RUN pnpm exec turbo run build --filter=./services/ingestion-worker
 
