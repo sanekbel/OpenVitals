@@ -1,0 +1,38 @@
+# Dockerfile.worker — сборка services/ingestion-worker из монорепо OpenVitals
+# Кладётся в корень репозитория, рядом с package.json
+
+FROM node:20-slim AS base
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY services/ingestion-worker/package.json services/ingestion-worker/package.json
+COPY packages packages
+RUN pnpm install --frozen-lockfile
+
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NODE_ENV=production
+RUN pnpm exec turbo run build --filter=./services/ingestion-worker
+
+FROM node:20-slim AS runner
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+WORKDIR /app
+ENV NODE_ENV=production
+RUN groupadd -r nodejs && useradd -r -g nodejs worker
+
+COPY --from=builder --chown=worker:nodejs /app .
+
+RUN mkdir -p /app/apps/web/uploads && chown worker:nodejs /app/apps/web/uploads
+
+USER worker
+WORKDIR /app/services/ingestion-worker
+EXPOSE 4000
+
+# ВАЖНО: проверь services/ingestion-worker/package.json — если скрипта "start"
+# там нет, замени на реальную команду запуска (например: CMD ["node", "dist/index.js"])
+CMD ["pnpm", "start"]
