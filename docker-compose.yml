@@ -31,6 +31,9 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
 
   worker:
     build:
@@ -48,9 +51,19 @@ services:
     restart: unless-stopped
     depends_on:
       - web
+    networks:
+      - default
+      - dokploy-network
 
 volumes:
   uploads:
+
+# dokploy-network — общая сеть Dokploy, в которой поднят внешний Postgres.
+# Подключаем к ней web и worker, чтобы оба резолвили хост БД по имени.
+# Если у тебя сеть называется иначе — поправь имя здесь и в сервисах.
+networks:
+  dokploy-network:
+    external: true
 
 # --- Опционально: свой Postgres внутри этого же compose ---
 # Если НЕ используешь Database-ресурс Dokploy, раскомментируй:
