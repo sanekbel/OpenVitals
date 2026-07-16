@@ -15,8 +15,10 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-# Сборка билд-тайм переменных не требует секретов — они читаются в рантайме
-RUN pnpm exec turbo run build --filter=./apps/web
+# Сборка билд-тайм переменных не требует секретов — они читаются в рантайме.
+# Заодно собираем ingestion-worker: из него берём самодостаточный dist/migrate.js
+# для авто-применения миграций на старте web-контейнера.
+RUN pnpm exec turbo run build --filter=./apps/web --filter=./services/ingestion-worker
 
 # ---- runner: минимальный рантайм-образ ----
 FROM node:20-slim AS runner
@@ -30,6 +32,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
+# Авто-миграции: самодостаточный бандл мигратора + SQL-файлы рядом с ним.
+# Скрипт применяет только новые миграции (идемпотентно), затем стартует сервер.
+COPY --from=builder --chown=nextjs:nodejs /app/services/ingestion-worker/dist/migrate.js ./apps/web/migrate.js
+COPY --from=builder --chown=nextjs:nodejs /app/packages/database/drizzle ./apps/web/drizzle
+
 # Директория для локально хранимых загруженных файлов (BLOB_STORAGE_PROVIDER=local)
 RUN mkdir -p /app/apps/web/uploads && chown nextjs:nodejs /app/apps/web/uploads
 
@@ -38,4 +45,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-CMD ["node", "apps/web/server.js"]
+# Сначала накатываем миграции, затем запускаем Next-сервер.
+CMD ["sh", "-c", "node apps/web/migrate.js && node apps/web/server.js"]
