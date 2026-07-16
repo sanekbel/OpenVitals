@@ -5,21 +5,14 @@ FROM node:20-slim AS base
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# ---- deps: ставим зависимости всего монорепо ----
-FROM base AS deps
-WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
-COPY apps/web/package.json apps/web/package.json
-COPY packages packages
-COPY services services
-RUN pnpm install --frozen-lockfile
-
-# ---- builder: собираем только apps/web через turbo filter по пути ----
+# ---- builder: полный install монорепо + сборка apps/web ----
+# Turbopack при сборке резолвит зависимости workspace-пакетов изнутри packages/*
+# (drizzle-orm, pg, zod, @vercel/blob и т.д.), поэтому нужны node_modules ВСЕХ
+# пакетов, а не только корневой и apps/web. Ставим зависимости на полном исходнике.
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY . .
+RUN pnpm install --frozen-lockfile
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 # Сборка билд-тайм переменных не требует секретов — они читаются в рантайме
