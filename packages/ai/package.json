@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.15",
     "@openvitals/common": "workspace:*",
     "ai": "^6.0.116"
   },

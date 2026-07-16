@@ -1,9 +1,8 @@
 import { generateText } from "ai";
-import { gateway } from "@ai-sdk/gateway";
 import { getDb } from "@openvitals/database/client";
 import { importJobs, sourceArtifacts } from "@openvitals/database";
 import { eq } from "drizzle-orm";
-import { classifyDocumentPrompt } from "@openvitals/ai";
+import { classifyDocumentPrompt, getModel } from "@openvitals/ai";
 import { createBlobStorage } from "@openvitals/blob-storage";
 import type { WorkflowContext } from "../workflow";
 import type { ClassificationResult } from "@openvitals/ingestion";
@@ -109,10 +108,8 @@ export async function classify(
     .where(eq(sourceArtifacts.id, ctx.artifactId));
 
   // Classify with AI
-  const modelId =
-    process.env.AI_DEFAULT_MODEL ?? "anthropic/claude-sonnet-4-20250514";
   const { text } = await generateText({
-    model: gateway(modelId),
+    model: getModel(),
     system: classifyDocumentPrompt,
     prompt: `Document type: ${artifact.mimeType}\nFile name: ${artifact.fileName}\n\nContent:\n${textContent.slice(0, 10000)}`,
   });
