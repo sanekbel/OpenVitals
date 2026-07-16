@@ -2,15 +2,16 @@
 // tsup собирает это в самодостаточный dist/migrate.js (noExternal бандлит pg и
 // drizzle-orm внутрь). Бандл + сами SQL-миграции копируются в web-образ и
 // запускаются перед стартом Next-сервера — схема накатывается автоматически.
-import { drizzle } from "drizzle-orm/node-postgres";
+//
+// db-хендл берём из @openvitals/database (прямой зависимости воркера), а не
+// импортируем pg напрямую — pg не является зависимостью воркера и не резолвится.
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Pool } from "pg";
+import { getDb } from "@openvitals/database";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 async function main() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is not set");
   }
 
@@ -20,16 +21,16 @@ async function main() {
     process.env.MIGRATIONS_DIR ??
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), "drizzle");
 
-  const pool = new Pool({ connectionString });
-  const db = drizzle(pool);
+  const db = getDb();
 
   console.log(`Applying migrations from ${migrationsFolder} ...`);
   await migrate(db, { migrationsFolder });
-  await pool.end();
   console.log("✅ Migrations applied");
 }
 
-main().catch((err) => {
-  console.error("❌ Migration failed:", err);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("❌ Migration failed:", err);
+    process.exit(1);
+  });
